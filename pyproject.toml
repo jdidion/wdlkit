@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "wdlkit"
+version = "0.1.0"
+description = "WDL development tools"
+authors = ["John Didion <jdidion@dnanexus.com>"]
+license = "MIT"
+include = ["templates/"]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+autoclick = "^0.8.0"
+miniwdl = "^0.7.0"
+networkx = "^2.4"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+wdlkit = "wdlkit.__main__:wdlkit"
+
+[build-system]
+requires = ["poetry>=1.0.0"]
+build-backend = "poetry.masonry.api"

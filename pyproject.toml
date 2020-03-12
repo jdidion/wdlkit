@@ -19,7 +19,7 @@ wdlkit = "wdlkit.__main__:wdlkit"
 
 [tool.scmver]
 enable = true
-write_to = "version.py"
+write_to = "wdlkit/version.py"
 
 [build-system]
 requires = ["poetry>=1.0.0"]

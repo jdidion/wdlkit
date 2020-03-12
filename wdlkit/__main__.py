@@ -6,9 +6,10 @@ import autoclick
 from wdlkit.ast import load_document
 from wdlkit.formatter import Formatter
 from wdlkit.utils import get_local_path
+from wdlkit.version import version
 
 
-@autoclick.group(version=True)
+@autoclick.group(version=version)
 def wdlkit():
     pass
 

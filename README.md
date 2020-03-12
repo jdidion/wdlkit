@@ -14,6 +14,8 @@ WDLkit is a toolkit to simplify and accelerate development of tasks and workflow
 
 Formats your WDL file(s) according to [WDLkit style](docs/style.md). This command is similar to [black](https://github.com/psf/black) in that it is highly opinionated and does not allow for configuration.
 
+Note: this command is currently experimental. It does not yet enforce all the rules described in the [WDLkit style](docs/style.md) document. *It may corrupt your WDL files*, so we recommend having the formatted files output to a separate location using the `-o` option. Use at your own risk with the `--overwrite` option to overwrite the input files!
+
 ```
 Usage: wdlkit format [OPTIONS] URI
 
@@ -39,3 +41,7 @@ Options:
                                   by default.
   --help                          Show this message and exit.
 ```
+
+### Known limitations
+
+This command relies on [miniwdl](https://github.com/chanzuckerberg/miniwdl) for parsing. Notably, miniwdl does not currently include comments in the abstract syntax tree, so the `format` command will cause any comments in your WDL file to be removed.

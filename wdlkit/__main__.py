@@ -18,7 +18,7 @@ def wdlkit():
 def format_wdl(
     uri: str,
     import_dir: Sequence[Path] = (),
-    version: str = "1.0",
+    wdl_version: str = "1.0",
     output_dir: Optional[Path] = None,
     overwrite: bool = False,
 ):
@@ -29,7 +29,7 @@ def format_wdl(
         uri: Path or URI (file:// or http(s)://) to the main WDL file.
         import_dir: Directory in which to look for imports. May be specified multiple
             times.
-        version: WDL version to generate. Currently, only 1.0 is supported.
+        wdl_version: WDL version to generate. Currently, only 1.0 is supported.
         output_dir: Directory in which to output formatted WDL files. If not specified,
             the input files are overwritten.
         overwrite: Whether to overwrite the input WDL file(s) with the reformatted
@@ -38,7 +38,7 @@ def format_wdl(
             there is a risk that this command might corrupt the WDL files. Once
             WDLkit reaches v1.0, this option will change to be enabled by default.
     """
-    if version != "1.0":
+    if wdl_version != "1.0":
         raise ValueError("Only WDL v1.0 is supported currently")
 
     import_dir_set = set(import_dir)

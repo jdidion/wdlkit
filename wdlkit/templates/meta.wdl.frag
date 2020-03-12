@@ -1,1 +1,3 @@
-{% if value %}meta {{ value }}{% endif %}
+{% if value %}meta {{ "{" }}{% for key, val in value.items() %}
+{{ key | indent(2, True) }}: {{ val | indent(2, False) }}{% endfor %}
+}{% endif %}

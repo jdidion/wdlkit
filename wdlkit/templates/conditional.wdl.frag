@@ -1,3 +1,3 @@
 if ({{ value.expr }}) {
-  {{ body }}
+  {{ body | trim() | indent(2, False) }}
 }

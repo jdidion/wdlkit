@@ -1,7 +1,7 @@
 import json
 import re
 import textwrap
-from typing import Any, Callable, Dict, List, Optional, Sequence, cast
+from typing import Any, Callable, Dict, Optional, Sequence, cast
 
 from jinja2 import Environment, PackageLoader, Template
 from WDL import (
@@ -9,14 +9,13 @@ from WDL import (
     Workflow, WorkflowNode, WorkflowSection
 )
 
-from wdlkit.ast import WorkflowBodyGraph, WorkflowBodyGraphNode
+from wdlkit.ast import WorkflowBodyGraph
 
 
 _JINJA_ENV = Environment(loader=PackageLoader("wdlkit"))
 _JINJA_ENV.filters["dedent"] = textwrap.dedent
+_JSON_ENCODER = json.JSONEncoder(indent=2)
 _TEMPLATE_DOCUMENT = "document.wdl"
-_TEMPLATE_WORKFLOW = "workflow.wdl.frag"
-_TEMPLATE_TASK = "task.wdl.frag"
 _UNQUOTE_RE = re.compile(r"^(\s+)\"(.+?)\":", re.M)
 _UNQUOTE_REPL = r"\1\2:"
 
@@ -35,10 +34,13 @@ def _frag_renderer(func: Callable, call_wrapped: bool = False):
 
     def renderer(cls, *args, **kwargs) -> str:
         template_name = f"{prefix}.wdl.frag"
+
         if args:
             kwargs["value"] = args[0]
+
         if call_wrapped:
             kwargs = func(cls, **kwargs)
+
         return _get_template(template_name).render(**kwargs)
 
     return classmethod(renderer) if is_classmethod else renderer
@@ -71,57 +73,57 @@ class Formatter:
 
         return contents
 
+    @_proxy_frag_renderer
     @classmethod
-    def format_workflow(cls, workflow: Workflow) -> str:
-        return _get_template(_TEMPLATE_WORKFLOW).render(
-            name=workflow.name,
-            inputs=cls.format_input(workflow.inputs or ()),
-            body=cls.format_workflow_body(workflow.body),
-            outputs=cls.format_output(workflow.outputs or ()),
-            meta=cls.format_meta(workflow.meta),
-            parameter_meta=cls.format_parameter_meta(workflow.parameter_meta),
+    def format_workflow(cls, value: Workflow) -> str:
+        return dict(
+            name=value.name,
+            inputs=cls.format_input(value.inputs or ()),
+            body=cls.format_workflow_body(value.body),
+            outputs=cls.format_output(value.outputs or ()),
+            meta=cls.format_meta(value.meta),
+            parameter_meta=cls.format_parameter_meta(value.parameter_meta),
         )
 
+    @_proxy_frag_renderer
     @classmethod
-    def format_task(cls, task: Task) -> str:
-        return _get_template(_TEMPLATE_TASK).render(
-            name=task.name,
-            inputs=cls.format_input(task.inputs or ()),
-            post_inputs=cls.format_declarations(task.postinputs),
-            command=cls.format_command(task.command),
-            outputs=cls.format_output(task.outputs),
-            runtime=cls.format_runtime(task.runtime),
-            meta=cls.format_meta(task.meta),
-            parameter_meta=cls.format_parameter_meta(task.parameter_meta),
-        )
-
-    @classmethod
-    def format_workflow_body(cls, nodes: Sequence[WorkflowNode]) -> str:
-        graph = WorkflowBodyGraph(*nodes)
+    def format_workflow_body(cls, value: Sequence[WorkflowNode]) -> str:
+        graph = WorkflowBodyGraph(*value)
         decls = []
+        body = []
 
         for node in graph.dependency_order():
-            cls.format_workflow_body_node(node, decls)
+            if isinstance(node, Decl):
+                decls.append(node)
+                continue
 
-    @classmethod
-    def format_workflow_body_node(
-        cls,
-        node: WorkflowBodyGraphNode,
-        decls: List[Decl],
-        indent=2
-    ):
-        if isinstance(node.node, Decl):
-            decls.append(node.node)
-            return
+            if decls:
+                body.append(cls.format_declarations(decls))
+                decls = []
+
+            if isinstance(node, Call):
+                body.append(cls.format_call(node))
+            elif isinstance(node, WorkflowSection):
+                body.append(cls.format_section(cast(WorkflowSection, node)))
 
         if decls:
-            cls.format_declarations(decls, indent=indent)
-            decls.clear()
+            body.append(cls.format_declarations(decls))
 
-        if isinstance(node.node, Call):
-            cls.format_call(node.node, indent=indent)
-        elif isinstance(node, WorkflowSection):
-            cls.format_section(node, indent=indent)
+        return {"value": body}
+
+    @_proxy_frag_renderer
+    @classmethod
+    def format_task(cls, value: Task) -> str:
+        return dict(
+            name=value.name,
+            inputs=cls.format_input(value.inputs or ()),
+            post_inputs=cls.format_declarations(value.postinputs),
+            command=cls.format_command(value.command),
+            outputs=cls.format_output(value.outputs),
+            runtime=cls.format_runtime(value.runtime),
+            meta=cls.format_meta(value.meta),
+            parameter_meta=cls.format_parameter_meta(value.parameter_meta),
+        )
 
     @_frag_renderer
     @classmethod
@@ -140,7 +142,7 @@ class Formatter:
 
     @_frag_renderer
     @classmethod
-    def format_declarations(cls, value: Sequence[Decl], indent: int = 2) -> str:
+    def format_declarations(cls, value: Sequence[Decl]) -> str:
         pass
 
     @_proxy_frag_renderer
@@ -154,42 +156,39 @@ class Formatter:
         return {"value": cls._format_jsonlike(value)}
 
     @classmethod
-    def _format_jsonlike(cls, value: Dict[str, Any]) -> str:
+    def _format_jsonlike(cls, value: Dict[str, Any]) -> Dict[str, str]:
         # format as JSON and unquote hash keys
-        return _UNQUOTE_RE.subn(_UNQUOTE_REPL, json.dumps(value, indent=2))[0]
-
-    @_frag_renderer
-    @classmethod
-    def format_call(cls, value: Call, indent: int = 2):
-        pass
-
-    @classmethod
-    def format_section(cls, section: WorkflowBodyGraphNode, indent: int = 2) -> str:
-        subgraph_content = cls.format_workflow_body(
-            cast(WorkflowSection, section.node).body
+        return dict(
+            (key, _UNQUOTE_RE.subn(_UNQUOTE_REPL, _JSON_ENCODER.encode(val))[0])
+            for key, val in value.items()
         )
-        if isinstance(section.node, Conditional):
-            cls.format_conditional(
-                section.node, body=subgraph_content, indent=indent + 2
-            )
-        elif isinstance(section.node, Scatter):
-            cls.format_scatter(
-                section.node, body=subgraph_content, indent=indent + 2
-            )
 
     @_frag_renderer
     @classmethod
-    def format_conditional(cls, value: Conditional, body: str, indent: int = 2):
+    def format_call(cls, value: Call):
+        pass
+
+    @classmethod
+    def format_section(cls, section: WorkflowSection) -> str:
+        subgraph_content = cls.format_workflow_body(section.body)
+        if isinstance(section, Conditional):
+            return cls.format_conditional(section, body=subgraph_content)
+        elif isinstance(section, Scatter):
+            return cls.format_scatter(section, body=subgraph_content)
+
+    @_frag_renderer
+    @classmethod
+    def format_conditional(cls, value: Conditional, body: str):
         pass
 
     @_frag_renderer
     @classmethod
-    def format_scatter(cls, value: Scatter, body: str, indent: int = 2):
+    def format_scatter(cls, value: Scatter, body: str):
         pass
 
     @_frag_renderer
     @classmethod
-    def format_command(cls, value: Expr.String, indent: int = 2):
+    def format_command(cls, value: Expr.String):
         pass
 
     @_frag_renderer

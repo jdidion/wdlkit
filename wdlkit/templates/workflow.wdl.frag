@@ -1,11 +1,11 @@
 workflow {{ name }} {{ "{" }}{% if inputs %}
-  {{ inputs }}
+{{ inputs | indent(2, True) }}
 {% endif %}{% if body %}
-  {{ body }}
+{{ body | trim() | indent(2, True) }}
 {% endif %}{% if outputs %}
-  {{ outputs }}
+{{ outputs | indent(2, True) }}
 {% endif %}{% if meta %}
-  {{ meta }}
+{{ meta | indent(2, True) }}
 {% endif %}{% if parameter_meta %}
-  {{ parameter_meta }}
+{{ parameter_meta | indent(2, True) }}
 {% endif %}}

@@ -1,70 +1,113 @@
+from enum import Enum
 import json
 import re
 import textwrap
-from typing import Any, Callable, Dict, Optional, Sequence, cast
+from typing import Any, Dict, Optional, Sequence, cast
 
 from jinja2 import Environment, PackageLoader, Template
 from WDL import (
-    Call, Conditional, Decl, Document, Env, Expr, Scatter, StructTypeDef, Task,
-    Workflow, WorkflowNode, WorkflowSection
+    Call,
+    Conditional,
+    Decl,
+    Document,
+    Env,
+    Expr,
+    Scatter,
+    StructTypeDef,
+    Task,
+    Workflow,
+    WorkflowNode,
+    WorkflowSection,
 )
+from WDL.Tree import DocImport
 
 from wdlkit.ast import WorkflowBodyGraph
 
 
-_JINJA_ENV = Environment(loader=PackageLoader("wdlkit"))
-_JINJA_ENV.filters["dedent"] = textwrap.dedent
-_JSON_ENCODER = json.JSONEncoder(indent=2)
-_TEMPLATE_DOCUMENT = "document.wdl"
-_UNQUOTE_RE = re.compile(r"^(\s+)\"(.+?)\":", re.M)
-_UNQUOTE_REPL = r"\1\2:"
+class WdlTemplate(Enum):
+    """
+    Enumeration of Jinja2 templates that are used to render a WDL document.
+    """
+
+    CALL = "call"
+    COMMAND = "command"
+    CONDITIONAL = "conditional"
+    DECLARATIONS = "declarations"
+    DOCUMENT = "document"
+    IMPORTS = "imports"
+    INPUTS = "inputs"
+    META = "meta"
+    OUTPUTS = "outputs"
+    PARAMETER_META = "parameter_meta"
+    RUNTIME = "runtime"
+    SCATTER = "scatter"
+    STRUCT = "struct"
+    TASK = "task"
+    WORKFLOW = "workflow"
+    WORKFLOW_BODY = "workflow_body"
 
 
-def _get_template(name: str) -> Template:
-    return _JINJA_ENV.get_template(name)
-
-
-def _frag_renderer(func: Callable, call_wrapped: bool = False):
-    is_classmethod = isinstance(func, classmethod)
-
-    if is_classmethod:
-        func = cast(classmethod, func).__func__
-
-    prefix = func.__name__[7:]
-
-    def renderer(cls, *args, **kwargs) -> str:
-        template_name = f"{prefix}.wdl.frag"
-
-        if args:
-            kwargs["value"] = args[0]
-
-        if call_wrapped:
-            kwargs = func(cls, **kwargs)
-
-        return _get_template(template_name).render(**kwargs)
-
-    return classmethod(renderer) if is_classmethod else renderer
-
-
-def _proxy_frag_renderer(func: Callable):
-    return _frag_renderer(func, True)
+def _create_jinja2_env():
+    env = Environment(loader=PackageLoader("wdlkit"))
+    env.filters["dedent"] = textwrap.dedent
+    return env
 
 
 class Formatter:
+    """
+    WDL document formatter.
+    """
+
+    _JINJA2_ENV = _create_jinja2_env()
+    _JSON_ENCODER = json.JSONEncoder(indent=2)
+    _UNQUOTE_RE = re.compile(r"^(\s+)\"(.+?)\":", re.M)
+    _UNQUOTE_REPL = r"\1\2:"
+
+    @classmethod
+    def _get_template(cls, tmpl: WdlTemplate) -> Template:
+        return Formatter._JINJA2_ENV.get_template(f"{tmpl.value}.wdl")
+
+    @classmethod
+    def _render_fragment(cls, template_name: str, **kwargs) -> str:
+        return cls._get_template(template_name).render(**kwargs)
+
+    @classmethod
+    def _format_jsonlike(cls, value: Dict[str, Any]) -> Dict[str, str]:
+        # format as JSON and unquote hash keys
+        return dict(
+            (
+                key,
+                Formatter._UNQUOTE_RE.subn(
+                    Formatter._UNQUOTE_REPL, Formatter._JSON_ENCODER.encode(val)
+                )[0],
+            )
+            for key, val in value.items()
+        )
+
     @classmethod
     def format_document(
-        cls,
-        uri: str,
-        doc: Document,
-        contents: Optional[Dict[str, str]] = None
+        cls, uri: str, doc: Document, contents: Optional[Dict[str, str]] = None
     ) -> Dict[str, str]:
+        """
+        Formats a WDL document and all its imports.
+
+        Args:
+            uri: URI or local path of the main WDL document.
+            doc: The WDL AST.
+            contents: Used to pass the mapping of URI to formatted contents to
+                recursive calls on imports. Callers should not need to use this.
+
+        Returns:
+            Mapping of URI to formatted document.
+        """
         if contents is None:
             contents = {}
 
-        contents[uri] = _get_template(_TEMPLATE_DOCUMENT).render(
+        contents[uri] = cls._get_template(WdlTemplate.DOCUMENT).render(
+            imports=cls.format_imports(doc.imports),
             structs=[cls.format_struct(s) for s in doc.struct_typedefs or ()],
             workflow=cls.format_workflow(doc.workflow) if doc.workflow else None,
-            tasks=[cls.format_task(task) for task in (doc.tasks or ())]
+            tasks=[cls.format_task(task) for task in (doc.tasks or ())],
         )
 
         if doc.imports:
@@ -73,10 +116,10 @@ class Formatter:
 
         return contents
 
-    @_proxy_frag_renderer
     @classmethod
     def format_workflow(cls, value: Workflow) -> str:
-        return dict(
+        return cls._render_fragment(
+            WdlTemplate.WORKFLOW,
             name=value.name,
             inputs=cls.format_input(value.inputs or ()),
             body=cls.format_workflow_body(value.body),
@@ -85,7 +128,6 @@ class Formatter:
             parameter_meta=cls.format_parameter_meta(value.parameter_meta),
         )
 
-    @_proxy_frag_renderer
     @classmethod
     def format_workflow_body(cls, value: Sequence[WorkflowNode]) -> str:
         graph = WorkflowBodyGraph(*value)
@@ -109,12 +151,12 @@ class Formatter:
         if decls:
             body.append(cls.format_declarations(decls))
 
-        return {"value": body}
+        return cls._render_fragment(WdlTemplate.WORKFLOW_BODY, body=body)
 
-    @_proxy_frag_renderer
     @classmethod
     def format_task(cls, value: Task) -> str:
-        return dict(
+        return cls._render_fragment(
+            WdlTemplate.TASK,
             name=value.name,
             inputs=cls.format_input(value.inputs or ()),
             post_inputs=cls.format_declarations(value.postinputs),
@@ -125,73 +167,64 @@ class Formatter:
             parameter_meta=cls.format_parameter_meta(value.parameter_meta),
         )
 
-    @_frag_renderer
     @classmethod
-    def format_struct(cls, value: Env.Binding[StructTypeDef]) -> str:
-        pass
-
-    @_frag_renderer
-    @classmethod
-    def format_input(cls, value: Sequence[Decl]) -> str:
-        pass
-
-    @_frag_renderer
-    @classmethod
-    def format_output(cls, value: Sequence[Decl]) -> str:
-        pass
-
-    @_frag_renderer
-    @classmethod
-    def format_declarations(cls, value: Sequence[Decl]) -> str:
-        pass
-
-    @_proxy_frag_renderer
-    @classmethod
-    def format_meta(cls, value: Dict[str, Any]) -> str:
-        return {"value": cls._format_jsonlike(value)}
-
-    @_proxy_frag_renderer
-    @classmethod
-    def format_parameter_meta(cls, value: Dict[str, Any]) -> str:
-        return {"value": cls._format_jsonlike(value)}
+    def format_imports(cls, imports: DocImport) -> str:
+        return cls._render_fragment(WdlTemplate.IMPORTS, imports=imports)
 
     @classmethod
-    def _format_jsonlike(cls, value: Dict[str, Any]) -> Dict[str, str]:
-        # format as JSON and unquote hash keys
-        return dict(
-            (key, _UNQUOTE_RE.subn(_UNQUOTE_REPL, _JSON_ENCODER.encode(val))[0])
-            for key, val in value.items()
+    def format_struct(cls, struct: Env.Binding[StructTypeDef]) -> str:
+        return cls._render_fragment(WdlTemplate.STRUCT, struct=struct)
+
+    @classmethod
+    def format_input(cls, inputs: Sequence[Decl]) -> str:
+        return cls._render_fragment(WdlTemplate.INPUTS, inputs=inputs)
+
+    @classmethod
+    def format_output(cls, outputs: Sequence[Decl]) -> str:
+        return cls._render_fragment(WdlTemplate.OUTPUTS, outputs=outputs)
+
+    @classmethod
+    def format_declarations(cls, decls: Sequence[Decl]) -> str:
+        return cls._render_fragment(WdlTemplate.DECLARATIONS, decls=decls)
+
+    @classmethod
+    def format_meta(cls, meta: Dict[str, Any]) -> str:
+        return cls._render_fragment(WdlTemplate.META, meta=cls._format_jsonlike(meta))
+
+    @classmethod
+    def format_parameter_meta(cls, parameter_meta: Dict[str, Any]) -> str:
+        return cls._render_fragment(
+            WdlTemplate.PARAMETER_META,
+            parameter_meta=cls._format_jsonlike(parameter_meta)
         )
 
-    @_frag_renderer
     @classmethod
-    def format_call(cls, value: Call):
-        pass
+    def format_call(cls, call: Call) -> str:
+        return cls._render_fragment(WdlTemplate.CALL, call=call)
 
     @classmethod
     def format_section(cls, section: WorkflowSection) -> str:
         subgraph_content = cls.format_workflow_body(section.body)
+
         if isinstance(section, Conditional):
             return cls.format_conditional(section, body=subgraph_content)
         elif isinstance(section, Scatter):
             return cls.format_scatter(section, body=subgraph_content)
 
-    @_frag_renderer
     @classmethod
-    def format_conditional(cls, value: Conditional, body: str):
-        pass
+    def format_conditional(cls, conditional: Conditional, body: str) -> str:
+        return cls._render_fragment(
+            WdlTemplate.CONDITIONAL, conditional=conditional, body=body
+        )
 
-    @_frag_renderer
     @classmethod
-    def format_scatter(cls, value: Scatter, body: str):
-        pass
+    def format_scatter(cls, scatter: Scatter, body: str) -> str:
+        return cls._render_fragment(WdlTemplate.SCATTER, conditional=scatter, body=body)
 
-    @_frag_renderer
     @classmethod
-    def format_command(cls, value: Expr.String):
-        pass
+    def format_command(cls, command: Expr.String) -> str:
+        return cls._render_fragment(WdlTemplate.COMMAND, command=command)
 
-    @_frag_renderer
     @classmethod
-    def format_runtime(cls, value: Dict[str, Expr.Base]) -> str:
-        pass
+    def format_runtime(cls, runtime: Dict[str, Expr.Base]) -> str:
+        return cls._render_fragment(WdlTemplate.RUNTIME, runtime=runtime)

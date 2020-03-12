@@ -33,7 +33,7 @@ class WorkflowBodyGraph(nx.DiGraph):
             nodes: `WorkflowNode`s
         """
         for node in nodes:
-            for dep in (node.workflow_node_dependencies or [HEAD_ID]):
+            for dep in node.workflow_node_dependencies or [HEAD_ID]:
                 if not self.has_node(dep):
                     self.add_node(dep, index=self._index)
                     self._index += 1
@@ -42,7 +42,7 @@ class WorkflowBodyGraph(nx.DiGraph):
 
             node_attrs = {
                 "workflow_node": node,
-                "key": (NODE_TYPE_ORDERING[type(node)], self._index)
+                "key": (NODE_TYPE_ORDERING[type(node)], self._index),
             }
 
             if not self.has_node(node.workflow_node_id):
@@ -78,9 +78,11 @@ class WorkflowBodyGraph(nx.DiGraph):
         else:
             graph = self
 
-        itr = iter(lexicographical_topological_sort(
-            graph, key=lambda nid: self.nodes[nid]["key"]
-        ))
+        itr = iter(
+            lexicographical_topological_sort(
+                graph, key=lambda nid: self.nodes[nid]["key"]
+            )
+        )
         first = next(itr)
 
         if first != HEAD_ID:

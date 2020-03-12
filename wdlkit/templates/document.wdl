@@ -1,5 +1,4 @@
-version 1.0{% if imports%}
-
+version 1.0{% if imports %}
 {{ imports }}{% endif %}{% if structs %}
 
 {{ structs}}{% endif %}{% if workflow %}

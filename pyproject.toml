@@ -8,7 +8,7 @@ include = ["templates/"]
 
 [tool.poetry.dependencies]
 python = "^3.6"
-autoclick = "^0.8.0"
+autoclick = "^0.8.1"
 miniwdl = "^0.7.0"
 networkx = "^2.4"
 
@@ -16,6 +16,10 @@ networkx = "^2.4"
 
 [tool.poetry.scripts]
 wdlkit = "wdlkit.__main__:wdlkit"
+
+[tool.scmver]
+enable = true
+write_to = "version.py"
 
 [build-system]
 requires = ["poetry>=1.0.0"]

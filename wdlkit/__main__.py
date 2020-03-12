@@ -8,7 +8,7 @@ from wdlkit.formatter import Formatter
 from wdlkit.utils import get_local_path
 
 
-@autoclick.group()
+@autoclick.group(version=True)
 def wdlkit():
     pass
 

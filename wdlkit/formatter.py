@@ -68,8 +68,8 @@ class Formatter:
         return Formatter._JINJA2_ENV.get_template(f"{tmpl.value}.wdl")
 
     @classmethod
-    def _render_fragment(cls, template_name: str, **kwargs) -> str:
-        return cls._get_template(template_name).render(**kwargs)
+    def _render_template(cls, tmpl: WdlTemplate, **kwargs) -> str:
+        return cls._get_template(tmpl).render(**kwargs)
 
     @classmethod
     def _format_jsonlike(cls, value: Dict[str, Any]) -> Dict[str, str]:
@@ -103,7 +103,8 @@ class Formatter:
         if contents is None:
             contents = {}
 
-        contents[uri] = cls._get_template(WdlTemplate.DOCUMENT).render(
+        contents[uri] = cls._render_template(
+            WdlTemplate.DOCUMENT,
             imports=cls.format_imports(doc.imports),
             structs=[cls.format_struct(s) for s in doc.struct_typedefs or ()],
             workflow=cls.format_workflow(doc.workflow) if doc.workflow else None,
@@ -118,7 +119,7 @@ class Formatter:
 
     @classmethod
     def format_workflow(cls, value: Workflow) -> str:
-        return cls._render_fragment(
+        return cls._render_template(
             WdlTemplate.WORKFLOW,
             name=value.name,
             inputs=cls.format_input(value.inputs or ()),
@@ -151,11 +152,11 @@ class Formatter:
         if decls:
             body.append(cls.format_declarations(decls))
 
-        return cls._render_fragment(WdlTemplate.WORKFLOW_BODY, body=body)
+        return cls._render_template(WdlTemplate.WORKFLOW_BODY, body=body)
 
     @classmethod
     def format_task(cls, value: Task) -> str:
-        return cls._render_fragment(
+        return cls._render_template(
             WdlTemplate.TASK,
             name=value.name,
             inputs=cls.format_input(value.inputs or ()),
@@ -169,38 +170,38 @@ class Formatter:
 
     @classmethod
     def format_imports(cls, imports: DocImport) -> str:
-        return cls._render_fragment(WdlTemplate.IMPORTS, imports=imports)
+        return cls._render_template(WdlTemplate.IMPORTS, imports=imports)
 
     @classmethod
     def format_struct(cls, struct: Env.Binding[StructTypeDef]) -> str:
-        return cls._render_fragment(WdlTemplate.STRUCT, struct=struct)
+        return cls._render_template(WdlTemplate.STRUCT, struct=struct)
 
     @classmethod
     def format_input(cls, inputs: Sequence[Decl]) -> str:
-        return cls._render_fragment(WdlTemplate.INPUTS, inputs=inputs)
+        return cls._render_template(WdlTemplate.INPUTS, inputs=inputs)
 
     @classmethod
     def format_output(cls, outputs: Sequence[Decl]) -> str:
-        return cls._render_fragment(WdlTemplate.OUTPUTS, outputs=outputs)
+        return cls._render_template(WdlTemplate.OUTPUTS, outputs=outputs)
 
     @classmethod
     def format_declarations(cls, decls: Sequence[Decl]) -> str:
-        return cls._render_fragment(WdlTemplate.DECLARATIONS, decls=decls)
+        return cls._render_template(WdlTemplate.DECLARATIONS, decls=decls)
 
     @classmethod
     def format_meta(cls, meta: Dict[str, Any]) -> str:
-        return cls._render_fragment(WdlTemplate.META, meta=cls._format_jsonlike(meta))
+        return cls._render_template(WdlTemplate.META, meta=cls._format_jsonlike(meta))
 
     @classmethod
     def format_parameter_meta(cls, parameter_meta: Dict[str, Any]) -> str:
-        return cls._render_fragment(
+        return cls._render_template(
             WdlTemplate.PARAMETER_META,
             parameter_meta=cls._format_jsonlike(parameter_meta)
         )
 
     @classmethod
     def format_call(cls, call: Call) -> str:
-        return cls._render_fragment(WdlTemplate.CALL, call=call)
+        return cls._render_template(WdlTemplate.CALL, call=call)
 
     @classmethod
     def format_section(cls, section: WorkflowSection) -> str:
@@ -213,18 +214,18 @@ class Formatter:
 
     @classmethod
     def format_conditional(cls, conditional: Conditional, body: str) -> str:
-        return cls._render_fragment(
+        return cls._render_template(
             WdlTemplate.CONDITIONAL, conditional=conditional, body=body
         )
 
     @classmethod
     def format_scatter(cls, scatter: Scatter, body: str) -> str:
-        return cls._render_fragment(WdlTemplate.SCATTER, conditional=scatter, body=body)
+        return cls._render_template(WdlTemplate.SCATTER, conditional=scatter, body=body)
 
     @classmethod
     def format_command(cls, command: Expr.String) -> str:
-        return cls._render_fragment(WdlTemplate.COMMAND, command=command)
+        return cls._render_template(WdlTemplate.COMMAND, command=command)
 
     @classmethod
     def format_runtime(cls, runtime: Dict[str, Expr.Base]) -> str:
-        return cls._render_fragment(WdlTemplate.RUNTIME, runtime=runtime)
+        return cls._render_template(WdlTemplate.RUNTIME, runtime=runtime)

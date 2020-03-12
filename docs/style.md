@@ -11,7 +11,7 @@ This document does *not* specify formatting rules for code within task command b
 
 * 2 spaces
 * What should be indented?
-    * Anything within a set of braces {}
+    * Anything within a set of braces (`{}`)
     * Inputs following `input:` in a call block
     * Continuations of expressions which did no fit on a single line
 
@@ -27,7 +27,7 @@ This document does *not* specify formatting rules for code within task command b
     * Following an assignment (`=`)
     * Before the `then` or `else` in an `if-then-else` expression
     * Following an operator that would otherwise be followed by a space
-* When wrapping an expression (or part of an expression), place the entire wrapped portion in parentheses, with the opening and closing parens following the same rules as braces and all wrapped lines being indented, e.g.
+* When wrapping an expression (or part of an expression), place the entire wrapped portion in parentheses, with the opening and closing parens following the same rules as braces and all wrapped lines being indented
     
     ```wdl
     Pair[Int, String] i = (
@@ -70,7 +70,7 @@ This document does *not* specify formatting rules for code within task command b
 
 ## WDL File Organization
 
-1. version (1.0 or development)
+1. version (`1.0` or `development`)
 1. imports
 1. structs
 1. workflow
@@ -93,10 +93,18 @@ This document does *not* specify formatting rules for code within task command b
 
 * Complex data types
     * Always use `Struct`s; never use `Object` types
-    * Do not use `Pair` or `Map` types unless absolutely necessary - almost all use cases for these are better satisfied by (arrays of) structs
-* Avoid using `Directory` for now, even when using version development, as directory types are not supported well (or at all) by workflow engines
+    * Avoid using `Pair` or `Map` types unless absolutely necessary - almost all use cases for these are better satisfied by (arrays of) structs
+* Avoid using `Directory` for now, even when using version `development`, as directory types are not supported well (or at all) by workflow engines
 * Prefer `ceil` or `floor` for converting `Float` to `Int`, as their behaviors are more intuitive than `round`
 * Prefer string interpolation to concatenation
+
+    ```wdl
+    # Good
+    File output_file = "${foo}.txt"
+    
+    # Bad
+    File output_file = foo + ".txt"
+    ```
 
 ## Task Sections
 
@@ -105,11 +113,11 @@ This document does *not* specify formatting rules for code within task command b
     * Avoid using optional or required arrays (e.g. `Array[String]?` or `Array[Int]+`) when writing workflows that will be compiled using dxWDL to run on DNAnexus: DNAnexus app/workflow inputs do not distinguish between empty and null inputs.
 * Command Block
     * Always use `command <<< >>>` with `~{...}` style placeholders
-    * Begin with set -uexo pipefail
+    * Begin with `set -uexo pipefail`
     * Use comments liberally
 * Output
     * Files
         * Specify file names explicitly when there are a small number of output files
-        * When using `glob()` to return an array of a large number of files, write your command block to place the output files in a separate directory, to avoid accidentally selecting additional files
+        * When using `glob()` to return an array of files, write your command block to place the output files in a separate directory, to avoid accidentally selecting additional files
 * Runtime
     * Be explicit about resource requirements if they are known; e.g. if a single CPU is required, specify `cpu: 1` rather than omitting `cpu`.

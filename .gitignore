@@ -1,2 +1,4 @@
 dist/
 __pycache__/
+# version.py is generated
+wdlkit/version.py

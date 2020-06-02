@@ -4,12 +4,14 @@ import "task.wdl" as simple
 
 struct Foo {
   String bar
+  Map[String, Int] foo
 }
 
 workflow test {
   input {
     Int i
     Boolean b = true
+    String s = "hello"
   }
 
   if (b) {

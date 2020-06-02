@@ -4,6 +4,7 @@ task simple {
   input {
     Int i
     String s = "hello"
+    Map[String, Int] foo
   }
 
   command <<<

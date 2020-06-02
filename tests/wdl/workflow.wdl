@@ -2,6 +2,10 @@ version 1.0
 
 import "task.wdl" as simple
 
+struct Foo {
+  String bar
+}
+
 workflow test {
   input {
     Int i

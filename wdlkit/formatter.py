@@ -105,12 +105,7 @@ class Formatter:
         Returns:
             The formatted expression
         """
-        if isinstance(expr, Expr.String):
-            return f'{expr}'
-        elif expr.children:
-            return "".join(Formatter.format_expression(ch) for ch in expr.children)
-        else:
-            return str(expr)
+        return str(expr)
 
     @classmethod
     def _get_template(cls, tmpl: WdlTemplate) -> Template:

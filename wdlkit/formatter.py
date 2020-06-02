@@ -16,6 +16,7 @@ from WDL import (
     Scatter,
     StructTypeDef,
     Task,
+    Type,
     Workflow,
     WorkflowNode,
     WorkflowSection,
@@ -69,7 +70,32 @@ class Formatter:
     _UNQUOTE_REPL = r"\1\2:"
 
     @staticmethod
-    def format_expression(expr: Expr) -> str:
+    def format_type(ty: Type.Base) -> str:
+        """
+        Custom type formatting method, mostly to deal with the fact that miniwdl
+        __str__ does not put a space after the ',' for Map and Pair types.
+        """
+        if isinstance(ty, Type.Map):
+            map_type = cast(Type.Map, ty)
+            key_str = Formatter.format_type(map_type.item_type[0])
+            val_str = Formatter.format_type(map_type.item_type[1])
+            s = f"Map[{key_str}, {val_str}]"
+            return f"{s}?" if ty.optional else s
+        elif isinstance(ty, Expr.Pair):
+            pair_type = cast(Type.Pair, ty)
+            left_str = Formatter.format_type(pair_type.left_type)
+            right_str = Formatter.format_type(pair_type.right_type)
+            s = f"Map[{left_str}, {right_str}]"
+            return f"{s}?" if ty.optional else s
+        elif isinstance(ty, Expr.Array):
+            array_type = cast(Type.Array, ty)
+            s = f"Array[{Formatter.format_type(array_type.item_type)}]"
+            return f"{s}?" if ty.optional else s
+        else:
+            return str(ty)
+
+    @staticmethod
+    def format_expression(expr: Expr.Base) -> str:
         """Simple expression formatter. This should eventually be replaced by one
         that handles wrapping and indenting.
 
@@ -93,7 +119,9 @@ class Formatter:
     @classmethod
     def _render_template(cls, tmpl: WdlTemplate, **kwargs) -> str:
         return cls._get_template(tmpl).render(
-            **kwargs, format_expression=Formatter.format_expression
+            **kwargs,
+            format_expression=Formatter.format_expression,
+            format_type=Formatter.format_type
         )
 
     @classmethod

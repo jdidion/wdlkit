@@ -1,7 +1,7 @@
 version 1.0{% if imports %}
-{{ imports }}{% endif %}{% if structs %}
+{{ imports }}{% endif %}{% if structs %}{% for struct in structs %}
 
-{{ structs}}{% endif %}{% if workflow %}
+{{ struct }}{% endfor %}{% endif %}{% if workflow %}
 
 {{ workflow }}{% endif %}{% if tasks %}{% for task in tasks %}
 

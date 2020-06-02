@@ -2,21 +2,21 @@ version 1.0
 
 task simple {
   input {
-      Int i
+    Int i
+    String s = "hello"
   }
 
   command <<<
-    echo ~{i}
-    echo ~{i} > output
+  echo ~{i}
+  echo ~{i} > output
   >>>
 
-    output {
+  output {
     File output_file = "output"
   }
 
   runtime {
-    docker:
-      "ubuntu:latest"
+    docker: "ubuntu:latest"
   }
 
   meta {
@@ -24,6 +24,8 @@ task simple {
   }
 
   parameter_meta {
-    i: { description: "A number" }
+    i: {
+      description: "A number"
+    }
   }
 }

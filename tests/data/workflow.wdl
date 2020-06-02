@@ -14,7 +14,8 @@ workflow test {
 
   if (b) {
     call simple.simple {
-      input: i = i
+      input:
+        i = i
     }
   }
 

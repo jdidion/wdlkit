@@ -1,8 +1,9 @@
 from enum import Enum
 import json
+from pathlib import Path
 import re
 import textwrap
-from typing import Any, Dict, Optional, Sequence, cast
+from typing import Any, Dict, Optional, Sequence, Tuple, cast
 
 from jinja2 import Environment, PackageLoader, Template
 from WDL import (
@@ -22,6 +23,10 @@ from WDL import (
 from WDL.Tree import DocImport
 
 from wdlkit.ast import WorkflowBodyGraph
+
+
+SourceDoc = Tuple[str, Path]
+"""Represents a WDL source document - a tuple of (URL, local path)"""
 
 
 class WdlTemplate(Enum):
@@ -63,13 +68,33 @@ class Formatter:
     _UNQUOTE_RE = re.compile(r"^(\s+)\"(.+?)\":", re.M)
     _UNQUOTE_REPL = r"\1\2:"
 
+    @staticmethod
+    def format_expression(expr: Expr) -> str:
+        """Simple expression formatter. This should eventually be replaced by one
+        that handles wrapping and indenting.
+
+        Args:
+            expr: the expression to format
+
+        Returns:
+            The formatted expression
+        """
+        if isinstance(expr, Expr.String):
+            return f'{expr}'
+        elif expr.children:
+            return "".join(Formatter.format_expression(ch) for ch in expr.children)
+        else:
+            return str(expr)
+
     @classmethod
     def _get_template(cls, tmpl: WdlTemplate) -> Template:
         return Formatter._JINJA2_ENV.get_template(f"{tmpl.value}.wdl")
 
     @classmethod
     def _render_template(cls, tmpl: WdlTemplate, **kwargs) -> str:
-        return cls._get_template(tmpl).render(**kwargs)
+        return cls._get_template(tmpl).render(
+            **kwargs, format_expression=Formatter.format_expression
+        )
 
     @classmethod
     def _format_jsonlike(cls, value: Dict[str, Any]) -> Dict[str, str]:
@@ -86,13 +111,12 @@ class Formatter:
 
     @classmethod
     def format_document(
-        cls, uri: str, doc: Document, contents: Optional[Dict[str, str]] = None
+        cls, doc: Document, contents: Optional[Dict[SourceDoc, str]] = None
     ) -> Dict[str, str]:
         """
         Formats a WDL document and all its imports.
 
         Args:
-            uri: URI or local path of the main WDL document.
             doc: The WDL AST.
             contents: Used to pass the mapping of URI to formatted contents to
                 recursive calls on imports. Callers should not need to use this.
@@ -103,7 +127,9 @@ class Formatter:
         if contents is None:
             contents = {}
 
-        contents[uri] = cls._render_template(
+        source_doc: SourceDoc = (doc.pos.uri, doc.pos.abspath)
+
+        contents[source_doc] = cls._render_template(
             WdlTemplate.DOCUMENT,
             imports=cls.format_imports(doc.imports),
             structs=[cls.format_struct(s) for s in doc.struct_typedefs or ()],
@@ -113,7 +139,7 @@ class Formatter:
 
         if doc.imports:
             for imp in doc.imports:
-                cls.format_document(imp.uri, imp.doc, contents)
+                cls.format_document(imp.doc, contents)
 
         return contents
 
@@ -174,7 +200,7 @@ class Formatter:
 
     @classmethod
     def format_struct(cls, struct: Env.Binding[StructTypeDef]) -> str:
-        return cls._render_template(WdlTemplate.STRUCT, struct=struct)
+        return cls._render_template(WdlTemplate.STRUCT, struct=struct.value)
 
     @classmethod
     def format_input(cls, inputs: Sequence[Decl]) -> str:

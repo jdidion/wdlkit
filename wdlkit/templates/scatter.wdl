@@ -1,3 +1,3 @@
-scatter ({{ scatter.variable }} in {{ scatter.expr }}) {
+scatter ({{ scatter.variable }} in {{ format_expression(scatter.expr) }}) {
   {{ body }}
 }

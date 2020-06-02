@@ -7,12 +7,14 @@ license = "MIT"
 include = ["templates/"]
 
 [tool.poetry.dependencies]
-python = "^3.6"
+python = "^3.6.1"
 autoclick = "^0.8.1"
 miniwdl = "^0.7.0"
 networkx = "^2.4"
 
 [tool.poetry.dev-dependencies]
+pytest = "^5.4.2"
+pytest-datadir-ng = "^1.1.1"
 
 [tool.poetry.scripts]
 wdlkit = "wdlkit.__main__:wdlkit"

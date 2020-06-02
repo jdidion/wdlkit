@@ -1,3 +1,3 @@
-struct {{ struct.name }} {{'{'}}{% for member in struct.members %}
-  {{member.type}} {{member.name}}{% endfor %}
+struct {{ struct.name }} {{'{'}}{% for member_name, member_type in struct.members.items() %}
+  {{member_type}} {{member_name}}{% endfor %}
 }

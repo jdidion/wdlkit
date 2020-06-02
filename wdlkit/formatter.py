@@ -235,7 +235,7 @@ class Formatter:
 
     @classmethod
     def format_declarations(cls, decls: Sequence[Decl]) -> str:
-        return cls._render_template(WdlTemplate.DECLARATIONS, decls=decls)
+        return cls._render_template(WdlTemplate.DECLARATIONS, declarations=decls)
 
     @classmethod
     def format_meta(cls, meta: Dict[str, Any]) -> str:

@@ -7,6 +7,9 @@ task simple {
     Map[String, Int] foo = {"x": 0}
   }
 
+  String bork = "boink"
+  Int z = 5
+
   command <<<
   echo ~{i}
   echo ~{i} > output
